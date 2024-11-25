@@ -59,5 +59,22 @@ target_link_libraries(lidar_ground_filter_node ${PCL_LIBRARIES})
 
 install(TARGETS lidar_ground_filter_node
   DESTINATION lib/${PROJECT_NAME})
+  
+  # Add after previous executables
+add_executable(lidar_aperture_filter_node src/lidar_aperture_filter_node.cpp)
+
+ament_target_dependencies(lidar_aperture_filter_node
+  rclcpp
+  sensor_msgs
+  pcl_conversions
+  pcl_ros
+  PCL
+)
+
+target_link_libraries(lidar_aperture_filter_node ${PCL_LIBRARIES})
+
+install(TARGETS lidar_aperture_filter_node
+  DESTINATION lib/${PROJECT_NAME})
+
 
 ament_package()
