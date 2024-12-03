@@ -2,19 +2,25 @@
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
   <name>lidar_filter</name>
-  <version>0.0.0</version>
-  <description>TODO: Package description</description>
-  <maintainer email="user@todo.todo">user</maintainer>
-  <license>TODO: License declaration</license>
+  <version>0.1.0</version>
+  <description>
+    ROS 2 package providing LiDAR point cloud filtering capabilities including ground plane removal,
+    box filtering, and aperture filtering. Includes both standalone and combined filter nodes.
+  </description>
+  <maintainer email="gunreben@wifa.uni-leipzig.de">user</maintainer>
+  <license>Apache License 2.0</license>
 
   <buildtool_depend>ament_cmake</buildtool_depend>
 
-	<depend>rclcpp</depend>
-	<depend>sensor_msgs</depend>
-	<depend>pcl_conversions</depend>
-	<depend>pcl_ros</depend>
+  <!-- Core Dependencies -->
+  <depend>rclcpp</depend>
+  <depend>sensor_msgs</depend>
+  <depend>pcl_conversions</depend>
+  <depend>pcl_ros</depend>
+  <depend>libpcl-all-dev</depend>
+  <depend>visualization_msgs</depend>
 
-
+  <!-- Test Dependencies -->
   <test_depend>ament_lint_auto</test_depend>
   <test_depend>ament_lint_common</test_depend>
 
@@ -22,3 +28,4 @@
     <build_type>ament_cmake</build_type>
   </export>
 </package>
+
