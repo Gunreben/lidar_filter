@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.8)
-project(lidar_filter)
+project(lidar_filter CUDA CXX)
 
 # Compiler options
 if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
@@ -19,11 +19,16 @@ find_package(PCL REQUIRED COMPONENTS
   filters 
   segmentation
 )
+find_package(CUDA REQUIRED)
+
+# Set CUDA flags
+set(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS};-O3;-arch=sm_50)
 
 # Include directories
 include_directories(
   include
   ${PCL_INCLUDE_DIRS}
+  ${CUDA_INCLUDE_DIRS}
 )
 
 # Define common dependencies for all nodes
@@ -33,6 +38,11 @@ set(LIDAR_FILTER_DEPS
   pcl_conversions
   pcl_ros
   PCL
+)
+
+# CUDA library
+cuda_add_library(cuda_segmentation
+  src/cuda_segmentation.cu
 )
 
 # Standalone filter nodes
@@ -58,7 +68,7 @@ ament_target_dependencies(lidar_aperture_filter_node
 )
 target_link_libraries(lidar_aperture_filter_node ${PCL_LIBRARIES})
 
-# Combined filter node
+# Combined filter node (CPU version)
 add_executable(combined_lidar_filter_node src/combined_lidar_filter_node.cpp)
 ament_target_dependencies(combined_lidar_filter_node
   ${LIDAR_FILTER_DEPS}
@@ -66,13 +76,34 @@ ament_target_dependencies(combined_lidar_filter_node
 )
 target_link_libraries(combined_lidar_filter_node ${PCL_LIBRARIES})
 
+# Combined filter node with CUDA support
+add_executable(cuda_lidar_filter_node src/cuda_lidar_filter_node.cpp)
+ament_target_dependencies(cuda_lidar_filter_node
+  ${LIDAR_FILTER_DEPS}
+  visualization_msgs
+)
+target_link_libraries(cuda_lidar_filter_node
+  cuda_segmentation
+  ${CUDA_LIBRARIES}
+  ${PCL_LIBRARIES}
+)
+
 # Install targets
 install(TARGETS
   lidar_box_filter_node
   lidar_ground_filter_node
   lidar_aperture_filter_node
   combined_lidar_filter_node
+  cuda_lidar_filter_node
   DESTINATION lib/${PROJECT_NAME}
+)
+
+# Optional: Install CUDA library
+install(TARGETS
+  cuda_segmentation
+  ARCHIVE DESTINATION lib
+  LIBRARY DESTINATION lib
+  RUNTIME DESTINATION bin
 )
 
 # Testing
