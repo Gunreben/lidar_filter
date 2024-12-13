@@ -40,10 +40,6 @@ set(LIDAR_FILTER_DEPS
   PCL
 )
 
-# CUDA library
-cuda_add_library(cuda_segmentation
-  src/cuda_segmentation.cu
-)
 
 # Standalone filter nodes
 # 1. Box Filter
@@ -76,6 +72,11 @@ ament_target_dependencies(combined_lidar_filter_node
 )
 target_link_libraries(combined_lidar_filter_node ${PCL_LIBRARIES})
 
+link_directories(${CMAKE_CURRENT_SOURCE_DIR}/lib)
+install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/lib/libcudasegmentation.so
+  DESTINATION lib
+)
+
 # Combined filter node with CUDA support
 add_executable(cuda_lidar_filter_node src/cuda_lidar_filter_node.cpp)
 ament_target_dependencies(cuda_lidar_filter_node
@@ -83,10 +84,13 @@ ament_target_dependencies(cuda_lidar_filter_node
   visualization_msgs
 )
 target_link_libraries(cuda_lidar_filter_node
-  cuda_segmentation
   ${CUDA_LIBRARIES}
   ${PCL_LIBRARIES}
+  cudasegmentation
 )
+
+
+
 
 # Install targets
 install(TARGETS
@@ -98,13 +102,6 @@ install(TARGETS
   DESTINATION lib/${PROJECT_NAME}
 )
 
-# Optional: Install CUDA library
-install(TARGETS
-  cuda_segmentation
-  ARCHIVE DESTINATION lib
-  LIBRARY DESTINATION lib
-  RUNTIME DESTINATION bin
-)
 
 # Testing
 if(BUILD_TESTING)
