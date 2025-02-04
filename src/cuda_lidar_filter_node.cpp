@@ -41,12 +41,16 @@ public:
 
     // Load parameters
     loadParameters();
+    
+    // Set QOS to BEST_EFFORT
+    rclcpp::QoS qos(rclcpp::KeepLast(10));
+    qos.best_effort();
 
     // Initialize publishers
-    pub_ = this->create_publisher<sensor_msgs::msg::PointCloud2>(output_topic_, 10);
+    pub_ = this->create_publisher<sensor_msgs::msg::PointCloud2>(output_topic_, qos);
     
     if (enable_box_filter_) {
-      marker_pub_ = this->create_publisher<visualization_msgs::msg::Marker>("filter_box_marker", 10);
+      marker_pub_ = this->create_publisher<visualization_msgs::msg::Marker>("filter_box_marker", qos);
       marker_timer_ = this->create_wall_timer(
         std::chrono::milliseconds(500),
         std::bind(&CudaLidarFilterNode::publishBoxMarker, this));
@@ -54,7 +58,7 @@ public:
 
     // Main subscriber
     sub_ = this->create_subscription<sensor_msgs::msg::PointCloud2>(
-      input_topic_, 10,
+      input_topic_, qos,
       std::bind(&CudaLidarFilterNode::pointCloudCallback, this, std::placeholders::_1));
 
     // Parameter callback
@@ -291,7 +295,7 @@ private:
     if (!enable_box_filter_) return;
 
     visualization_msgs::msg::Marker marker;
-    marker.header.frame_id = "os0_128_10hz_512_rev7"; // Adjust to your actual lidar frame
+    marker.header.frame_id = "os_sensor"; // os0_128_10hz_512_rev7 in simulation, os_sensor real
     marker.header.stamp = this->now();
     marker.ns = "filter_box";
     marker.id = 0;
