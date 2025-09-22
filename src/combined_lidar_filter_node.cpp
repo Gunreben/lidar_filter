@@ -166,9 +166,13 @@ private:
     const pcl::PointCloud<pcl::PointXYZ>::Ptr& input_cloud)
   {
     pcl::PointCloud<pcl::PointXYZ>::Ptr filtered_cloud(new pcl::PointCloud<pcl::PointXYZ>());
+    filtered_cloud->points.reserve(input_cloud->points.size());
 
     for (const auto& point : input_cloud->points) {
-      double azimuth = std::atan2(point.y, point.x);
+      // Azimuth relative to +Y (front): 0 rad at +Y, right positive, left negative
+      double azimuth = std::atan2(point.x, point.y);
+      // Normalize to [-pi, pi]
+      azimuth = std::atan2(std::sin(azimuth), std::cos(azimuth));
       double range = std::sqrt(point.x * point.x + point.y * point.y + point.z * point.z);
       if (range == 0) continue;
       

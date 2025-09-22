@@ -40,29 +40,6 @@ set(LIDAR_FILTER_DEPS
   PCL
 )
 
-# Standalone filter nodes
-# 1. Box Filter
-add_executable(lidar_box_filter_node src/lidar_box_filter_node.cpp)
-ament_target_dependencies(lidar_box_filter_node
-  ${LIDAR_FILTER_DEPS}
-  visualization_msgs
-)
-target_link_libraries(lidar_box_filter_node ${PCL_LIBRARIES})
-
-# 2. Ground Filter
-add_executable(lidar_ground_filter_node src/lidar_ground_filter_node.cpp)
-ament_target_dependencies(lidar_ground_filter_node
-  ${LIDAR_FILTER_DEPS}
-)
-target_link_libraries(lidar_ground_filter_node ${PCL_LIBRARIES})
-
-# 3. Aperture Filter
-add_executable(lidar_aperture_filter_node src/lidar_aperture_filter_node.cpp)
-ament_target_dependencies(lidar_aperture_filter_node
-  ${LIDAR_FILTER_DEPS}
-)
-target_link_libraries(lidar_aperture_filter_node ${PCL_LIBRARIES})
-
 # Combined filter node
 add_executable(combined_lidar_filter_node src/combined_lidar_filter_node.cpp)
 ament_target_dependencies(combined_lidar_filter_node
@@ -73,9 +50,6 @@ target_link_libraries(combined_lidar_filter_node ${PCL_LIBRARIES})
 
 # Install targets
 install(TARGETS
-  lidar_box_filter_node
-  lidar_ground_filter_node
-  lidar_aperture_filter_node
   combined_lidar_filter_node
   DESTINATION lib/${PROJECT_NAME}
 )
