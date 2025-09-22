@@ -61,6 +61,13 @@ public:
         std::bind(&CombinedLidarFilterNode::publishBoxMarker, this));
     }
 
+    if (enable_aperture_filter_) {
+      aperture_marker_pub_ = this->create_publisher<visualization_msgs::msg::Marker>("aperture_filter_marker", 10);
+      aperture_marker_timer_ = this->create_wall_timer(
+        std::chrono::milliseconds(500),
+        std::bind(&CombinedLidarFilterNode::publishApertureMarker, this));
+    }
+
     // Main subscriber with sensor data QoS
     sub_ = this->create_subscription<sensor_msgs::msg::PointCloud2>(
       input_topic_, sensor_qos,
@@ -270,6 +277,85 @@ private:
     marker_pub_->publish(marker);
   }
 
+  void publishApertureMarker()
+  {
+    if (!enable_aperture_filter_) return;
+
+    visualization_msgs::msg::Marker marker;
+    marker.header.frame_id = target_frame_.empty() ? "base_link" : target_frame_;
+    marker.header.stamp = this->now();
+    marker.ns = "aperture_filter";
+    marker.id = 0;
+    marker.type = visualization_msgs::msg::Marker::LINE_LIST;
+    marker.action = visualization_msgs::msg::Marker::ADD;
+
+    marker.pose.orientation.w = 1.0;
+    marker.scale.x = 0.05; // Line width
+
+    // Semi-transparent cyan
+    marker.color.r = 0.0;
+    marker.color.g = 1.0;
+    marker.color.b = 1.0;
+    marker.color.a = 0.8;
+    marker.lifetime = rclcpp::Duration(0, 0);
+
+    // Create aperture boundary lines
+    const double range = 8.0; // Visualization range in meters
+    const int segments = 16;
+
+    // Draw azimuth boundaries at different elevations
+    for (int elev_step = 0; elev_step <= 4; ++elev_step) {
+      double elevation = min_elevation_rad_ + elev_step * (max_elevation_rad_ - min_elevation_rad_) / 4.0;
+      double r = range * std::cos(elevation);
+      double z = range * std::sin(elevation);
+
+      // Left azimuth boundary
+      geometry_msgs::msg::Point start1, end1;
+      start1.x = 0.0; start1.y = 0.0; start1.z = 0.0;
+      end1.x = r * std::sin(min_azimuth_rad_);
+      end1.y = r * std::cos(min_azimuth_rad_);
+      end1.z = z;
+      marker.points.push_back(start1);
+      marker.points.push_back(end1);
+
+      // Right azimuth boundary  
+      geometry_msgs::msg::Point start2, end2;
+      start2.x = 0.0; start2.y = 0.0; start2.z = 0.0;
+      end2.x = r * std::sin(max_azimuth_rad_);
+      end2.y = r * std::cos(max_azimuth_rad_);
+      end2.z = z;
+      marker.points.push_back(start2);
+      marker.points.push_back(end2);
+    }
+
+    // Draw elevation boundaries
+    for (int az_step = 0; az_step <= segments; ++az_step) {
+      double azimuth = min_azimuth_rad_ + az_step * (max_azimuth_rad_ - min_azimuth_rad_) / segments;
+      
+      // Bottom elevation boundary
+      double r1 = range * std::cos(min_elevation_rad_);
+      geometry_msgs::msg::Point p1, p2;
+      p1.x = 0.0; p1.y = 0.0; p1.z = 0.0;
+      p2.x = r1 * std::sin(azimuth);
+      p2.y = r1 * std::cos(azimuth);
+      p2.z = range * std::sin(min_elevation_rad_);
+      marker.points.push_back(p1);
+      marker.points.push_back(p2);
+
+      // Top elevation boundary
+      double r2 = range * std::cos(max_elevation_rad_);
+      geometry_msgs::msg::Point p3, p4;
+      p3.x = 0.0; p3.y = 0.0; p3.z = 0.0;
+      p4.x = r2 * std::sin(azimuth);
+      p4.y = r2 * std::cos(azimuth);
+      p4.z = range * std::sin(max_elevation_rad_);
+      marker.points.push_back(p3);
+      marker.points.push_back(p4);
+    }
+
+    aperture_marker_pub_->publish(marker);
+  }
+
   rcl_interfaces::msg::SetParametersResult parameterCallback(
     const std::vector<rclcpp::Parameter>& parameters)
   {
@@ -324,6 +410,8 @@ private:
   bool enable_box_filter_;
   rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr marker_pub_;
   rclcpp::TimerBase::SharedPtr marker_timer_;
+  rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr aperture_marker_pub_;
+  rclcpp::TimerBase::SharedPtr aperture_marker_timer_;
   std::vector<double> min_point_;
   std::vector<double> max_point_;
   bool box_filter_negative_;
