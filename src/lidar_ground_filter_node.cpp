@@ -27,14 +27,30 @@ public:
     max_iterations_ = this->get_parameter("max_iterations").as_int();
     angle_threshold_ = this->get_parameter("angle_threshold").as_double();
 
-    // Subscriber and Publisher
-    sub_ = this->create_subscription<sensor_msgs::msg::PointCloud2>(
-      input_topic_, 10,
-      std::bind(&LidarGroundFilterNode::pointCloudCallback, this, std::placeholders::_1));
-    pub_ = this->create_publisher<sensor_msgs::msg::PointCloud2>(output_topic_, 10);
+    // Create publisher with sensor data QoS (matches subscription)
+    auto pub_qos = rclcpp::SensorDataQoS();
+    pub_ = this->create_publisher<sensor_msgs::msg::PointCloud2>(output_topic_, pub_qos);
+
+    // Create subscription with adaptive QoS
+    createAdaptiveSubscription();
   }
 
 private:
+  void createAdaptiveSubscription()
+  {
+    // Use sensor data QoS profile which handles most sensor scenarios
+    // This profile uses BEST_EFFORT reliability and VOLATILE durability
+    auto sensor_qos = rclcpp::SensorDataQoS();
+    
+    RCLCPP_INFO(this->get_logger(), 
+      "Creating subscription with SensorDataQoS (BEST_EFFORT) for topic: %s", 
+      input_topic_.c_str());
+    
+    sub_ = this->create_subscription<sensor_msgs::msg::PointCloud2>(
+      input_topic_, sensor_qos,
+      std::bind(&LidarGroundFilterNode::pointCloudCallback, this, std::placeholders::_1));
+  }
+
   void pointCloudCallback(const sensor_msgs::msg::PointCloud2::SharedPtr cloud_msg)
   {
     // Convert ROS2 message to PCL PointCloud

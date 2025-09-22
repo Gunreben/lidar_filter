@@ -22,14 +22,17 @@ public:
     input_topic_ = this->get_parameter("input_topic").as_string();
     output_topic_ = this->get_parameter("output_topic").as_string();
 
-    // Subscriber and Publisher
-    sub_ = this->create_subscription<sensor_msgs::msg::PointCloud2>(
-      input_topic_, 10,
-      std::bind(&LidarBoxFilterNode::pointCloudCallback, this, std::placeholders::_1));
-    pub_ = this->create_publisher<sensor_msgs::msg::PointCloud2>(output_topic_, 10);
-
-    // Publisher for the visualization marker
+    // Create publishers with appropriate QoS
+    auto sensor_qos = rclcpp::SensorDataQoS();
+    pub_ = this->create_publisher<sensor_msgs::msg::PointCloud2>(output_topic_, sensor_qos);
+    
+    // Visualization marker can use default QoS (reliable)
     marker_pub_ = this->create_publisher<visualization_msgs::msg::Marker>("filter_box_marker", 10);
+
+    // Create subscription with sensor data QoS
+    sub_ = this->create_subscription<sensor_msgs::msg::PointCloud2>(
+      input_topic_, sensor_qos,
+      std::bind(&LidarBoxFilterNode::pointCloudCallback, this, std::placeholders::_1));
 
     // Publish the initial marker
     //publishMarker();
@@ -97,7 +100,7 @@ private:
   void publishMarker()
   {
     visualization_msgs::msg::Marker marker;
-    marker.header.frame_id = "os0_128_10hz_512_rev7"; // Adjust the frame as necessary
+    marker.header.frame_id = "base_link"; // Adjust the frame as necessary
     marker.header.stamp = this->now();
     marker.ns = "filter_box";
     marker.id = 0;

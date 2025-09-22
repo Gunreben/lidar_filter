@@ -6,6 +6,10 @@
 #include <pcl/segmentation/sac_segmentation.h>
 #include <visualization_msgs/msg/marker.hpp>
 #include <cmath>
+#include <pcl/common/transforms.h>
+#include <tf2_ros/transform_listener.h>
+#include <tf2_ros/buffer.h>
+#include <tf2_eigen/tf2_eigen.hpp>
 
 class CombinedLidarFilterNode : public rclcpp::Node
 {
@@ -16,6 +20,7 @@ public:
     // Common parameters
     this->declare_parameter<std::string>("input_topic", "/points");
     this->declare_parameter<std::string>("output_topic", "/filtered_points");
+    this->declare_parameter<std::string>("target_frame", "base_link");
     
     // Aperture filter parameters
     this->declare_parameter<bool>("enable_aperture_filter", true);
@@ -40,19 +45,25 @@ public:
     // Load parameters
     loadParameters();
 
-    // Initialize publisher
-    pub_ = this->create_publisher<sensor_msgs::msg::PointCloud2>(output_topic_, 10);
+    // TF setup
+    tf_buffer_ = std::make_shared<tf2_ros::Buffer>(this->get_clock());
+    tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
+
+    // Initialize publishers with appropriate QoS
+    auto sensor_qos = rclcpp::SensorDataQoS();
+    pub_ = this->create_publisher<sensor_msgs::msg::PointCloud2>(output_topic_, sensor_qos);
     
     if (enable_box_filter_) {
+      // Visualization markers can use default QoS (reliable)
       marker_pub_ = this->create_publisher<visualization_msgs::msg::Marker>("filter_box_marker", 10);
       marker_timer_ = this->create_wall_timer(
         std::chrono::milliseconds(500),
         std::bind(&CombinedLidarFilterNode::publishBoxMarker, this));
     }
 
-    // Main subscriber
+    // Main subscriber with sensor data QoS
     sub_ = this->create_subscription<sensor_msgs::msg::PointCloud2>(
-      input_topic_, 10,
+      input_topic_, sensor_qos,
       std::bind(&CombinedLidarFilterNode::pointCloudCallback, this, std::placeholders::_1));
 
     // Parameter callback
@@ -70,6 +81,9 @@ private:
     // Load common parameters
     input_topic_ = this->get_parameter("input_topic").as_string();
     output_topic_ = this->get_parameter("output_topic").as_string();
+    if (this->has_parameter("target_frame")) {
+      target_frame_ = this->get_parameter("target_frame").as_string();
+    }
     
     // Load aperture filter parameters
     enable_aperture_filter_ = this->get_parameter("enable_aperture_filter").as_bool();
@@ -110,6 +124,21 @@ private:
     pcl::PointCloud<pcl::PointXYZ>::Ptr cloud(new pcl::PointCloud<pcl::PointXYZ>());
     pcl::fromROSMsg(*cloud_msg, *cloud);
 
+    // Transform once to target_frame if needed
+    std::string source_frame = cloud_msg->header.frame_id;
+    if (!target_frame_.empty() && source_frame != target_frame_) {
+      try {
+        geometry_msgs::msg::TransformStamped tf_stamped =
+          tf_buffer_->lookupTransform(target_frame_, source_frame, tf2::TimePointZero);
+        Eigen::Isometry3d T_eig = tf2::transformToEigen(tf_stamped.transform);
+        pcl::transformPointCloud(*cloud, *cloud, T_eig.cast<float>().matrix());
+        source_frame = target_frame_;
+      } catch (const std::exception &ex) {
+        RCLCPP_WARN_THROTTLE(this->get_logger(), *this->get_clock(), 2000,
+          "TF lookup failed (%s -> %s): %s", source_frame.c_str(), target_frame_.c_str(), ex.what());
+      }
+    }
+
     // Apply filters sequentially if enabled
     if (enable_aperture_filter_) {
       cloud = applyApertureFilter(cloud);
@@ -127,6 +156,9 @@ private:
     sensor_msgs::msg::PointCloud2 output_msg;
     pcl::toROSMsg(*cloud, output_msg);
     output_msg.header = cloud_msg->header;
+    if (!target_frame_.empty()) {
+      output_msg.header.frame_id = source_frame; // target_frame_ if transform succeeded
+    }
     pub_->publish(output_msg);
   }
 
@@ -209,7 +241,7 @@ private:
     if (!enable_box_filter_) return;
 
     visualization_msgs::msg::Marker marker;
-    marker.header.frame_id = "os0_128_10hz_512_rev7";
+    marker.header.frame_id = target_frame_.empty() ? "base_link" : target_frame_;
     marker.header.stamp = this->now();
     marker.ns = "filter_box";
     marker.id = 0;
@@ -245,6 +277,7 @@ private:
       if (param.get_name().find("min_") != std::string::npos ||
           param.get_name().find("max_") != std::string::npos ||
           param.get_name().find("enable_") != std::string::npos ||
+          param.get_name() == "target_frame" ||
           param.get_name() == "distance_threshold" ||
           param.get_name() == "optimize_coefficients" ||
           param.get_name() == "max_iterations" ||
@@ -269,7 +302,12 @@ private:
   rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr pub_;
   std::string input_topic_;
   std::string output_topic_;
+  std::string target_frame_;
   OnSetParametersCallbackHandle::SharedPtr parameter_callback_handle_;
+
+  // TF
+  std::shared_ptr<tf2_ros::Buffer> tf_buffer_;
+  std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
 
   // Aperture filter members
   bool enable_aperture_filter_;

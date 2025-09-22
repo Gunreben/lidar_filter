@@ -32,11 +32,12 @@ public:
     min_elevation_rad_ = min_elevation_angle_ * M_PI / 180.0;
     max_elevation_rad_ = max_elevation_angle_ * M_PI / 180.0;
 
-    // Subscriber and Publisher
+    // Create publisher and subscriber with sensor data QoS
+    auto sensor_qos = rclcpp::SensorDataQoS();
+    pub_ = this->create_publisher<sensor_msgs::msg::PointCloud2>(output_topic_, sensor_qos);
     sub_ = this->create_subscription<sensor_msgs::msg::PointCloud2>(
-      input_topic_, 10,
+      input_topic_, sensor_qos,
       std::bind(&LidarApertureFilterNode::pointCloudCallback, this, std::placeholders::_1));
-    pub_ = this->create_publisher<sensor_msgs::msg::PointCloud2>(output_topic_, 10);
   }
 
 private:
