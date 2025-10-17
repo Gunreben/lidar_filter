@@ -18,21 +18,21 @@ public:
   : Node("combined_lidar_filter_node")
   {
     // Common parameters
-    this->declare_parameter<std::string>("input_topic", "/points");
-    this->declare_parameter<std::string>("output_topic", "/filtered_points");
+    this->declare_parameter<std::string>("input_topic", "ouster/points");
+    this->declare_parameter<std::string>("output_topic", "ouster/points/filtered");
     this->declare_parameter<std::string>("target_frame", "base_link");
     
     // Aperture filter parameters
     this->declare_parameter<bool>("enable_aperture_filter", true);
-    this->declare_parameter<double>("min_azimuth_angle", -60.0);
-    this->declare_parameter<double>("max_azimuth_angle", 60.0);
-    this->declare_parameter<double>("min_elevation_angle", -30.0);
-    this->declare_parameter<double>("max_elevation_angle", 30.0);
+    this->declare_parameter<double>("min_azimuth_angle", -20.0);
+    this->declare_parameter<double>("max_azimuth_angle", 20.0);
+    this->declare_parameter<double>("min_elevation_angle", -45.0);
+    this->declare_parameter<double>("max_elevation_angle", 45.0);
 
     // Box filter parameters
     this->declare_parameter<bool>("enable_box_filter", true);
-    this->declare_parameter<std::vector<float>>("min_point", std::vector<float>{-0.5, -1.5, -1.2});
-    this->declare_parameter<std::vector<float>>("max_point", std::vector<float>{3.0, 1.5, 1.0});
+    this->declare_parameter<std::vector<float>>("min_point", std::vector<float>{-2.0, 0.0, -0.2});
+    this->declare_parameter<std::vector<float>>("max_point", std::vector<float>{2.0, 3.0, 2.5});
     this->declare_parameter<bool>("box_filter_negative", true);
 
     // Ground filter parameters
